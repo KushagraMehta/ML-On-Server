@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<title>Client</title>
+	<style>
+		#container {
+			margin: 0px auto;
+			width: 500px;
+			height: 375px;
+			border: 10px #333 solid;
+		}
+
+		#videoElement {
+			width: 500px;
+			height: 375px;
+			background-color: #666;
+		}
+
+	</style>
+</head>
+
+<body>
+	<div id="container">
+		<img src="" id="videoElement">
+		<script>
+			// get img dom element
+			const img = document.querySelector('img');
+
+			const WS_URL = location.origin.replace(/^http/, 'ws');
+			const ws = new WebSocket(WS_URL);
+			ws.onopen = () => console.log(`Connected to ${WS_URL}`);
+			ws.onmessage = message => {
+				// set the base64 string to the src tag of the image
+				img.src = message.data;
+			}
+
+		</script>
+	</div>
+</body>
+
+</html>
