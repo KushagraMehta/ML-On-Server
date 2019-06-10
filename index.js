@@ -2,14 +2,15 @@
 const path = require('path');
 var express = require('express');
 var app = express();
-var httpServer = require('http').createServer(app);
-const WebSocket = require('ws');
-const wsServer = new WebSocket.Server({ server: httpServer }, () => console.log(`WS server is listening at ws://localhost:${WS_PORT}`));
+var server = require('http').createServer(app);
+var io = require('socket.io').listen(server);
+
 const PORT = process.env.PORT || 8888;
 var connectedClients = [];
 
-
-httpServer.listen(PORT, () => console.log(`HTTP server listening at http://localhost:${PORT}`));
+server.listen(PORT);
+console.log("Listening at port 8888..!!!");
+app.use(express.static('public'));
 
 
 app.get('/client', (req, res) => res.sendFile(path.resolve(__dirname, './public/client.html'))
@@ -22,21 +23,24 @@ app.get('/', (req, res) => {
         <a href="client">Client</a>
     `);
 });
+io.on('connection', function (socket) {
 
-wsServer.on('connection', (ws, req) => {
-    console.log('Connected');
-    // add new connected client
-    connectedClients.push(ws);
-    // listen for messages from the streamer, the clients will not send anything so we don't need to filter
-    ws.on('message', data => {
+	"use strict";
+	connectedClients.push(socket);
+	console.log('Made Socket Connection with id = ', socket.id);
+	console.log('Current User = ' + connectedClients.length);
+
+	//Disconnect
+	socket.on('disconnect', function () {
+		console.log('user disconnected');
+		connectedClients.splice(connectedClients.indexOf(socket), 1);
+		console.log('Current Active User = ' + connectedClients.length);
+	});
+	
+	socket.on('IMAGE_DATA_FROM_STREAMER', data => {
         // send the base64 encoded frame to each connected ws
-        connectedClients.forEach((ws, i) => {
-            if (ws.readyState === ws.OPEN) { // check if it is still connected
-                ws.send(data); // send
-            } else { // if it's not connected remove from the array of connected ws
-                connectedClients.splice(i, 1);
-            }
-        });
-    });
+		socket.broadcast.emit('IMAGE_DATA_FOR_CLIENT', data);
+				}
+        );
 });
 

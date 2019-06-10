@@ -4,43 +4,52 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Streamer</title>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.dev.js"></script>
+	<script src="/socket.io/socket.io.js"></script>
 </head>
 
 <body>
 	<div class="camera">
-		<video autoplay></video>
+		<video id="video" width="300" , height="300"></video>
 	</div>
-
 	<script>
-		const video = document.querySelector('video');
+		var socket = io();
+		var canvas = document.createElement('canvas');
+		var context = canvas.getContext('2d');
+		var video = document.getElementById('video');
+		var mediaConfig = {
+			video: true
+		};
+		var errBack = function(e) {
+			console.log('An error has occurred!', e)
+		};
 
-		// request access to webcam
-		navigator.mediaDevices.getUserMedia({
-			video: {
-				width: 426,
-				height: 240
-			}
-		}).then((stream) => video.srcObject = stream);
-
-		// returns a frame encoded in base64
-		const getFrame = () => {
-			const canvas = document.createElement('canvas');
-			canvas.width = video.videoWidth;
-			canvas.height = video.videoHeight;
-			canvas.getContext('2d').drawImage(video, 0, 0);
-			const data = canvas.toDataURL('image/png');
-			return data;
+		// Put video listeners into place
+		if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+			navigator.mediaDevices.getUserMedia(mediaConfig).then(function(stream) {
+				video.srcObject = stream;
+				video.play();
+			});
 		}
-		const WS_URL = location.origin.replace(/^http/, 'ws');
 		const FPS = 30;
-		const ws = new WebSocket(WS_URL);
-		ws.onopen = () => {
-			console.log(`Connected to ${WS_URL}`);
-			setInterval(() => {
-				ws.send(getFrame());
-			}, 1000 / FPS);
-		}
 
+		video.addEventListener('play', function() {
+			var $this = this; //cache
+			(function loop() {
+				if (!$this.paused && !$this.ended) {
+					context.drawImage($this, 0, 0, 300, 300);
+					var data = canvas.toDataURL('image/jpeg');
+					var today = new Date();
+					var n = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+					// returns a frame encoded in base64
+					socket.emit('IMAGE_DATA_FROM_STREAMER',{
+						image: canvas.toDataURL('image/jpeg'),
+						time:n
+					});
+					setTimeout(loop, 1000 / FPS); // drawing at 30fps
+				}
+			})();
+		}, 0);
 	</script>
 </body>
 
