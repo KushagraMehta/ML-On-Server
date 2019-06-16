@@ -23,42 +23,48 @@
 
 <body>
 	<div id="container">
-		<canvas id="canvas" ></canvas>
+		<img id="Draw_canvas"></canvas>
 	</div>
 	<script>
 		var socket = io();
-
+		console.log("Socker Create");
 		socket.on('connect', () => {
-			socket.emit('Tunnel',{ ID:socket.id });
+			console.log("Connect");
+			socket.emit('Tunnel', { ID: socket.id });
 		});
-
-		var canvas = document.getElementById('canvas');
+		socket.on('disconnect', () => {
+			socket.emit('disconnect', { ID: socket.id });
+		});
+		console.log("Variable Initializing");
+		var Draw_img = document.getElementById('Draw_canvas');
+		var canvas = document.createElement('canvas');
 		var context = canvas.getContext('2d');
 		var video = document.createElement('video');
 		var constraints = {
-				  audio: false,
-				  video: { width: 300, height: 300 }
-			};
-		var errBack = function(e) {
+			audio: false,
+			video: { width: 300, height: 300 }
+		};
+		var errBack = function (e) {
 			console.log('An error has occurred!', e)
 		};
 
 		if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
 			// Put video listeners into place
 			navigator.mediaDevices.getUserMedia(constraints)
-				.then(function(stream) {
-				/* use the stream */
-				video.srcObject = stream;
-				video.play();
+				.then(function (stream) {
+					/* use the stream */
+					console.log("Setting Stream And playing");
+					video.srcObject = stream;
+					video.play();
 				})
-				.catch(function(err) {
-				/* handle the error */
-				console.log("Error: ");
+				.catch(function (err) {
+					/* handle the error */
+					console.log("Error: ");
 				});
 		}
-		const FPS = 5;
-
-		video.addEventListener('play', function() {
+		const FPS = 15;
+		console.log("ADDeventLISTENER");
+		video.addEventListener('play', function () {
 			var $this = this; //cache
 			(function loop() {
 				if (!$this.paused && !$this.ended) {
@@ -66,12 +72,16 @@
 					canvas.setAttribute('height', video.videoHeight);
 					context.drawImage($this, 0, 0);
 					var data = canvas.toDataURL('image/jpeg');
-					var today = new Date();
-					var n = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
 					// returns a frame encoded in base64
+					sessionStorage.clear();
+					console.log("SENDing ");
 					socket.compress(true).emit('IMAGE_DATA_FROM_STREAMER', {
-						image: canvas.toDataURL('image/jpeg'),
-						time: n
+						image: canvas.toDataURL('image/jpeg')
+					});
+					console.log("REceiving");
+					socket.on('face', (IMAGE) => {
+						Draw_img.src = null;
+						Draw_img.src = IMAGE.data.image;
 					});
 					setTimeout(loop, 1000 / FPS); // drawing at 30fps
 				}
