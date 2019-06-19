@@ -5,88 +5,73 @@
 	<meta charset="UTF-8">
 	<title>Streamer</title>
 	<style>
-		#container {
+		<body style="background-image:url(https://images.unsplash.com/photo-1492138623748-a1b1f758a762?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=967&q=80)">
+		#my_camera {
 			margin: 0px auto;
-			width: 300px;
-			height: 300px;
+			width: 320px
+			height: 240px;
 			border: 10px #333 solid;
 		}
 
-		#canvas {
-			width: 300px;
-			height: 300px;
+		#results {
+			width: 320px;
+			height: 240px;
 			background-color: #666;
 		}
+
 	</style>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.dev.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.dev.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/webcamjs/1.0.25/webcam.js"></script>
 </head>
 
 <body>
-	<div id="container">
+	<div id="my_camera"></div>
+
+	<div id="results">
 		<img id="Draw_canvas"></canvas>
-	</div>
-	<script>
+	
+	<script language="JavaScript">
+		var Draw_img = document.getElementById('Draw_canvas');
 		var socket = io();
 		console.log("Socker Create");
 		socket.on('connect', () => {
 			console.log("Connect");
-			socket.emit('Tunnel', { ID: socket.id });
+			socket.emit('Tunnel', {
+				ID: socket.id
+			});
 		});
 		socket.on('disconnect', () => {
-			socket.emit('disconnect', { ID: socket.id });
+			socket.emit('disconnect', {
+				ID: socket.id
+			});
 		});
-		console.log("Variable Initializing");
-		var Draw_img = document.getElementById('Draw_canvas');
-		var canvas = document.createElement('canvas');
-		var context = canvas.getContext('2d');
-		var video = document.createElement('video');
-		var constraints = {
-			audio: false,
-			video: { width: 300, height: 300 }
-		};
-		var errBack = function (e) {
-			console.log('An error has occurred!', e)
-		};
+		
+		socket.on('face', (IMAGE) => {
+			Draw_img.src = IMAGE.data;
+		});
 
-		if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-			// Put video listeners into place
-			navigator.mediaDevices.getUserMedia(constraints)
-				.then(function (stream) {
-					/* use the stream */
-					console.log("Setting Stream And playing");
-					video.srcObject = stream;
-					video.play();
-				})
-				.catch(function (err) {
-					/* handle the error */
-					console.log("Error: ");
-				});
+		Webcam.set({
+			width: 320,
+			height: 240,
+			image_format: 'jpeg',
+			jpeg_quality: 90
+		});
+		Webcam.attach('#my_camera');
+
+		async function send_IMAGE(data) {
+			socket.compress(true).emit('IMAGE_DATA_FROM_STREAMER', data);
 		}
-		const FPS = 15;
-		console.log("ADDeventLISTENER");
-		video.addEventListener('play', function () {
-			var $this = this; //cache
-			(function loop() {
-				if (!$this.paused && !$this.ended) {
-					canvas.setAttribute('width', video.videoWidth);
-					canvas.setAttribute('height', video.videoHeight);
-					context.drawImage($this, 0, 0);
-					var data = canvas.toDataURL('image/jpeg');
-					// returns a frame encoded in base64
-					sessionStorage.clear();
-					console.log("SENDing ");
-					socket.compress(true).emit('IMAGE_DATA_FROM_STREAMER', {
-						image: canvas.toDataURL('image/jpeg')
-					});
-					console.log("REceiving");
-					socket.on('face', (IMAGE) => {
-						Draw_img.src = null;
-						Draw_img.src = IMAGE.data.image;
-					});
-					setTimeout(loop, 1000 / FPS); // drawing at 30fps
-				}
-			})();
-		}, 0);
+
+		function repeatOften() {
+			Webcam.snap(async function(data_uri) {
+				var raw_image_data = data_uri.replace(/^data\:image\/\w+\;base64\,/, '');
+				send_IMAGE(raw_image_data);
+			});
+			requestAnimationFrame(repeatOften);
+		}
+
+		Webcam.on('live', () => requestAnimationFrame(repeatOften));
+
 
 	</script>
 </body>

@@ -1,6 +1,8 @@
 from flask import Flask, render_template, jsonify
 from flask_socketio import SocketIO, send, emit
 import base64
+from io import BytesIO
+from PIL import Image
 import numpy as np
 import cv2
 import os
@@ -40,18 +42,20 @@ def image(data):
     count += 1
     if count < 10:
         return
-    socketio.emit('face', {"data": data})
-    # img = base64.b64decode(data['image'].split(',')[1])
-    # npimg = np.frombuffer(img, dtype=np.uint8)
-    # source = cv2.imdecode(npimg, 1)
-    # face_cascade = cv2.CascadeClassifier(
-    #     os.getcwd() + '\\FaceData\\haarcascade_frontalface_default.xml')
-    # face_img = source.copy()
-    # face_rects = face_cascade.detectMultiScale(face_img, scaleFactor=1.2)
-    # for (x, y, w, h) in face_rects:
-    #     cv2.rectangle(face_img, (x, y), (x + w, y + h), (255, 255, 255), 10)
-    # # cv2.imwrite(os.getcwd() + '\\image\\data' + str(count) + '.jpg', source)
-    # image = base64.b64encode(face_img)
+    image = Image.open(BytesIO(base64.b64decode(data)))
+    source = np.array(image)
+    face_cascade = cv2.CascadeClassifier(
+        os.getcwd() + '\\FaceData\\haarcascade_frontalface_default.xml')
+    face_rects = face_cascade.detectMultiScale(source, scaleFactor=1.2)
+    for (x, y, w, h) in face_rects:
+        cv2.rectangle(source, (x, y), (x + w, y + h), (255, 255, 255), 10)
+
+    pil_img = Image.fromarray(source)
+    buff = BytesIO()
+    pil_img.save(buff, format="JPEG")
+    new_image_string = "data:image/jpeg;base64," + \
+        base64.b64encode(buff.getvalue()).decode("utf-8")
+    socketio.emit('face', {"data": new_image_string})
 
 
 if __name__ == '__main__':
